@@ -9,8 +9,15 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# NEXT_PUBLIC_API_URL is only read server-side (next.config.ts rewrites),
-# so it does not need to be injected at build time here.
+# Next.js resolves next.config.ts `rewrites()` at BUILD time and freezes the
+# destination into .next/routes-manifest.json + the standalone config. Setting
+# NEXT_PUBLIC_API_URL only at runtime (docker-compose) has NO effect: the proxy
+# would stay pinned on the http://localhost:8081 fallback and every /backend/*
+# call would answer 500. It must therefore be present here, at build time.
+# Alternative destination when the frontend runs on the same docker network as
+# the backend: http://loyalty-program:8081 (no Traefik hop, no /loyalty-api).
+ARG NEXT_PUBLIC_API_URL=https://loyalty.yowyob.com/loyalty-api
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 # ── run ───────────────────────────────────────────────────────
