@@ -157,8 +157,16 @@ public class KernelCoreAuthAdapter {
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new RegistrationFailedException(
                                         "Inscription refusée: " + body))))
+                // KernelCore rend un 500 — et non un 409 — sur doublon ("An actor already exists
+                // with email: …"). Traduire tout 5xx en indisponibilité afficherait "KernelCore
+                // indisponible" à un utilisateur dont le seul tort est d'avoir deja un compte, en
+                // masquant la seule information exploitable. On ne garde l'indisponibilité que
+                // lorsque le corps est vide, cas d'une vraie panne.
                 .onStatus(HttpStatusCode::is5xxServerError,
-                        resp -> Mono.error(new KernelCoreUnavailableException("KernelCore indisponible pour l'inscription")))
+                        resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
+                                .flatMap(body -> Mono.error(body.isBlank()
+                                        ? new KernelCoreUnavailableException("KernelCore indisponible pour l'inscription")
+                                        : new RegistrationFailedException("Inscription refusée: " + body))))
                 .bodyToMono(SIGNUP_TYPE)
                 .flatMap(response -> {
                     if (!response.isSuccess() || response.getData() == null) {
