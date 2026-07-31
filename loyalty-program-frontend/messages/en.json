@@ -363,5 +363,97 @@
     "checkEmailTitle": "Account created!",
     "checkEmailMessage": "Check your inbox ({email}) to confirm your address before signing in.",
     "backToLogin": "Go to login"
+  },
+  "PlatformAdmin": {
+    "unlock": {
+      "title": "Platform console",
+      "description": "Restricted to the Yowyob team. Paste the platform secret.",
+      "secretLabel": "Platform secret",
+      "showSecret": "Show secret",
+      "hideSecret": "Hide secret",
+      "submit": "Unlock",
+      "tenantPrompt": "Are you a tenant?",
+      "tenantLink": "Developer portal"
+    },
+    "header": {
+      "title": "Platform Console",
+      "badge": "Organisations",
+      "logout": "Sign out"
+    },
+    "title": "Organisations",
+    "subtitle": "Tenants subscribed to the loyalty service (Kernel Core + local billing).",
+    "actions": {
+      "export": "Export CSV",
+      "refresh": "Refresh",
+      "retry": "Retry"
+    },
+    "error": {
+      "title": "Could not load organisations"
+    },
+    "stats": {
+      "organisations": "Subscribed organisations",
+      "organisationsHint": "platform total",
+      "organisationsHintFiltered": "of {total} in total",
+      "active": "Active subscriptions",
+      "activeHint": "{percent}% of the selection",
+      "activeHintEmpty": "no subscription",
+      "points": "Points generated",
+      "pointsHint": "{count} points",
+      "pointsHintEmpty": "no points generated",
+      "revenue": "Revenue collected",
+      "revenueHint": "paid invoices"
+    },
+    "filters": {
+      "searchPlaceholder": "Search an organisation, a tenant ID, a plan…",
+      "all": "All",
+      "reset": "Reset"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "TRIAL": "Trial",
+      "PAST_DUE": "Past due",
+      "CANCELLED": "Cancelled",
+      "EXPIRED": "Expired"
+    },
+    "chart": {
+      "title": "Points generated per organisation",
+      "titleTop": "Points generated per organisation (top 10)",
+      "leader": "Leader:",
+      "points": "points generated"
+    },
+    "table": {
+      "organisation": "Organisation",
+      "plan": "Plan",
+      "status": "Status",
+      "periodEnd": "Period end",
+      "points": "Points generated",
+      "paid": "Paid",
+      "copyId": "Copy tenant ID",
+      "trialUntil": "trial until {date}",
+      "count": "{count, plural, one {# organisation} other {# organisations}}",
+      "countFiltered": "{count, plural, one {# organisation} other {# organisations}} of {total}"
+    },
+    "empty": {
+      "title": "No subscribed organisation",
+      "description": "Tenants will appear here as soon as they subscribe to the loyalty service."
+    },
+    "noResults": {
+      "title": "No results",
+      "description": "No organisation matches these filters.",
+      "reset": "Reset filters"
+    },
+    "csv": {
+      "filename": "loyalty-organisations",
+      "organisation": "Organisation",
+      "tenantId": "Tenant ID",
+      "plan": "Plan",
+      "planCode": "Plan code",
+      "status": "Status",
+      "trialEnd": "Trial end",
+      "periodEnd": "Period end",
+      "points": "Points generated",
+      "paid": "Amount paid",
+      "currency": "Currency"
+    }
   }
 }

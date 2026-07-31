@@ -6,6 +6,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.UUID;
 
 public interface PaymentRequestR2dbcRepository extends ReactiveCrudRepository<PaymentRequestEntity, UUID> {
@@ -15,5 +16,5 @@ public interface PaymentRequestR2dbcRepository extends ReactiveCrudRepository<Pa
     Flux<PaymentRequestEntity> findByWalletIdOrderByInitiatedAtDesc(UUID walletId);
 
     /** Recharges encore ouvertes dont la fenêtre est dépassée — matière à réconciliation. */
-    Flux<PaymentRequestEntity> findByStatusInAndExpiresAtBefore(Iterable<String> statuses, Instant cutoff);
+    Flux<PaymentRequestEntity> findByStatusInAndExpiresAtBefore(Collection<String> statuses, Instant cutoff);
 }
