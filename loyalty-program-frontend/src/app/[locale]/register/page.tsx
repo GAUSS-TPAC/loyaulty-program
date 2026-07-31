@@ -53,6 +53,14 @@ export default function RegisterPage() {
       setError("Password is required");
       return;
     }
+    // Même règle que RegisterRequest côté backend, elle-même reprise d'auth-core :
+    // la refuser ici évite un aller-retour KernelCore pour un refus en anglais.
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$/.test(formData.password)) {
+      setError(
+        "Le mot de passe doit contenir au moins 10 caractères, une minuscule, une majuscule, un chiffre et un symbole"
+      );
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;

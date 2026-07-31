@@ -104,11 +104,17 @@ public class KernelCoreAuthAdapter {
     }
 
     /**
-     * Découverte du jeton court d'inscription pour une organisation donnée (code fixe de ce
-     * déploiement, app.kernel-core.organization-code), via POST /api/auth/discover-sign-up-contexts.
-     * Le selectionToken renvoyé est réutilisé par signUp().
+     * Sélection d'inscription : le jeton court et le contexte auquel il se rapporte.
+     * KernelCore refuse le jeton sans son contextId, les deux doivent voyager ensemble.
      */
-    public Mono<String> discoverSignUpSelectionToken(String organizationCode) {
+    public record SignUpSelection(String selectionToken, String contextId) {}
+
+    /**
+     * Découverte du contexte d'inscription pour une organisation donnée (code fixe de ce
+     * déploiement, app.kernel-core.organization-code), via POST /api/auth/discover-sign-up-contexts.
+     * Le couple renvoyé est réutilisé par signUp().
+     */
+    public Mono<SignUpSelection> discoverSignUpSelection(String organizationCode) {
         return kernelCoreWebClient.post()
                 .uri("/api/auth/discover-sign-up-contexts")
                 .bodyValue(new KernelDiscoverSignUpContextsRequestDto(organizationCode))
@@ -123,11 +129,15 @@ public class KernelCoreAuthAdapter {
                 .bodyToMono(DISCOVER_SIGNUP_TYPE)
                 .flatMap(response -> {
                     if (!response.isSuccess() || response.getData() == null
-                            || response.getData().getSelectionToken() == null) {
-                        return Mono.<String>error(new KernelCoreUnavailableException(
+                            || response.getData().getSelectionToken() == null
+                            || response.getData().getContexts().isEmpty()) {
+                        return Mono.<SignUpSelection>error(new KernelCoreUnavailableException(
                                 "Réponse KernelCore invalide pour /api/auth/discover-sign-up-contexts"));
                     }
-                    return Mono.just(response.getData().getSelectionToken());
+                    // Le code d'organisation est unique : la découverte ne renvoie qu'un contexte.
+                    return Mono.just(new SignUpSelection(
+                            response.getData().getSelectionToken(),
+                            response.getData().getContexts().get(0).getContextId()));
                 })
                 .doOnError(e -> log.warn("Échec découverte du contexte d'inscription KernelCore: {}", e.getMessage()));
     }
@@ -136,11 +146,12 @@ public class KernelCoreAuthAdapter {
      * Inscription publique via POST /api/auth/sign-up. Le compte créé reste
      * EMAIL_VERIFICATION_REQUIRED (login refusé) tant que l'adresse n'est pas confirmée.
      */
-    public Mono<KernelSignUpResultDto> signUp(String selectionToken, String firstName, String lastName,
-                                               String email, String password) {
+    public Mono<KernelSignUpResultDto> signUp(SignUpSelection selection, String username, String firstName,
+                                               String lastName, String email, String password) {
         return kernelCoreWebClient.post()
                 .uri("/api/auth/sign-up")
-                .bodyValue(new KernelPublicSignUpRequestDto(selectionToken, firstName, lastName, email, password))
+                .bodyValue(new KernelPublicSignUpRequestDto(selection.selectionToken(), selection.contextId(),
+                        username, firstName, lastName, email, password))
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")

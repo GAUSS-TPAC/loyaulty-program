@@ -206,9 +206,30 @@ public class AuthService {
             return Mono.error(new RegistrationFailedException(
                     "Inscription indisponible : organisation cible non configurée (app.kernel-core.organization-code)"));
         }
-        return kernelCoreAuthAdapter.discoverSignUpSelectionToken(organizationCode)
-                .flatMap(selectionToken -> kernelCoreAuthAdapter.signUp(selectionToken, firstName, lastName, email, password))
+        return kernelCoreAuthAdapter.discoverSignUpSelection(organizationCode)
+                .flatMap(selection -> kernelCoreAuthAdapter.signUp(
+                        selection, usernameFrom(email), firstName, lastName, email, password))
                 .map(result -> new RegisterResult(result.getEmail(), result.getStatus(), result.isEmailVerified()));
+    }
+
+    /**
+     * KernelCore impose un {@code username} à l'inscription alors que notre formulaire ne le
+     * collecte pas : on le dérive de la partie locale de l'email, en respectant le motif
+     * d'auth-core {@code ^[A-Za-z0-9](?:[A-Za-z0-9._-]{1,30}[A-Za-z0-9])$} (3 à 32 caractères,
+     * bornes alphanumériques). Deux adresses de domaines différents mais de même partie locale
+     * produisent le même identifiant : KernelCore rejette alors le doublon, et son message
+     * remonte tel quel à l'utilisateur.
+     */
+    static String usernameFrom(String email) {
+        String local = email.substring(0, Math.max(email.indexOf('@'), 0));
+        String cleaned = local.replaceAll("[^A-Za-z0-9._-]", "-")
+                .replaceAll("^[^A-Za-z0-9]+", "")
+                .replaceAll("[^A-Za-z0-9]+$", "");
+        if (cleaned.length() > 32) {
+            cleaned = cleaned.substring(0, 32).replaceAll("[^A-Za-z0-9]+$", "");
+        }
+        // Motif et longueur minimale garantis même pour une partie locale vide ou trop courte.
+        return cleaned.length() >= 3 ? cleaned : (cleaned + "user").substring(0, 4);
     }
 
     public record RegisterResult(String email, String status, boolean emailVerified) {}
