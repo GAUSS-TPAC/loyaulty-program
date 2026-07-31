@@ -1,13 +1,16 @@
 package com.yowyob.loyalty.infrastructure.kernelcore.config;
 
+import com.yowyob.loyalty.domain.wallet.port.out.PaymentGatewayPort;
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreActorAdapter;
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreAuthAdapter;
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreDeveloperInviteAdapter;
+import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCorePaymentGatewayAdapter;
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreTenantAdapter;
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreTokenService;
 import com.yowyob.loyalty.infrastructure.redis.adapter.TenantCacheAdapter;
 import io.netty.channel.ChannelOption;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -71,5 +74,18 @@ public class KernelCoreConfig {
     public KernelCoreDeveloperInviteAdapter kernelCoreDeveloperInviteAdapter(
             @Qualifier("kernelCoreWebClient") WebClient kernelCoreWebClient) {
         return new KernelCoreDeveloperInviteAdapter(kernelCoreWebClient);
+    }
+
+    /**
+     * Passerelle de paiement réelle. Désactivée par défaut : sans credentials Kernel Core
+     * valides, mieux vaut le stub explicite (PaymentGatewayStub) qu'un 502 à chaque recharge.
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "app.kernel-core.payments", name = "enabled", havingValue = "true")
+    public PaymentGatewayPort kernelCorePaymentGatewayAdapter(
+            @Qualifier("kernelCoreWebClient") WebClient kernelCoreWebClient,
+            KernelCoreTokenService kernelCoreTokenService,
+            KernelCoreProperties properties) {
+        return new KernelCorePaymentGatewayAdapter(kernelCoreWebClient, kernelCoreTokenService, properties);
     }
 }

@@ -5,7 +5,10 @@ import com.yowyob.loyalty.api.wallet.dto.request.CreateWalletRequest;
 import com.yowyob.loyalty.api.wallet.dto.request.CreditRequest;
 import com.yowyob.loyalty.api.wallet.dto.request.DebitRequest;
 import com.yowyob.loyalty.api.wallet.dto.request.FreezeRequest;
+import com.yowyob.loyalty.api.wallet.dto.request.TopUpRequest;
 import com.yowyob.loyalty.api.wallet.dto.response.DebitResponse;
+import com.yowyob.loyalty.api.wallet.dto.response.TopUpResponse;
+import com.yowyob.loyalty.api.wallet.dto.response.TopUpStatusResponse;
 import com.yowyob.loyalty.api.wallet.dto.response.WalletResponse;
 import com.yowyob.loyalty.api.wallet.dto.response.WalletTransactionResponse;
 import com.yowyob.loyalty.domain.shared.model.UserId;
@@ -13,10 +16,12 @@ import com.yowyob.loyalty.domain.wallet.model.TransactionSource;
 import com.yowyob.loyalty.domain.wallet.model.TransactionType;
 import com.yowyob.loyalty.domain.wallet.port.in.*;
 import com.yowyob.loyalty.domain.wallet.port.out.WalletPolicyRepository;
+import com.yowyob.loyalty.shared.exception.ForbiddenException;
 import com.yowyob.loyalty.shared.multitenancy.TenantContextHolder;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -39,7 +44,10 @@ public class WalletController {
     private final FreezeWalletUseCase freezeWalletUseCase;
     private final UnfreezeWalletUseCase unfreezeWalletUseCase;
     private final GetTransactionHistoryUseCase getTransactionHistoryUseCase;
+    private final InitiateTopUpUseCase initiateTopUpUseCase;
+    private final ConfirmTopUpUseCase confirmTopUpUseCase;
     private final WalletPolicyRepository policyRepo;
+    private final String defaultPaymentProvider;
 
     public WalletController(
             @Qualifier("createWalletHandler") CreateWalletUseCase createWalletUseCase,
@@ -50,7 +58,10 @@ public class WalletController {
             @Qualifier("freezeWalletHandler") FreezeWalletUseCase freezeWalletUseCase,
             @Qualifier("unfreezeWalletHandler") UnfreezeWalletUseCase unfreezeWalletUseCase,
             @Qualifier("getTransactionHistoryHandler") GetTransactionHistoryUseCase getTransactionHistoryUseCase,
-            WalletPolicyRepository policyRepo) {
+            @Qualifier("initiateTopUpHandler") InitiateTopUpUseCase initiateTopUpUseCase,
+            @Qualifier("confirmTopUpHandler") ConfirmTopUpUseCase confirmTopUpUseCase,
+            WalletPolicyRepository policyRepo,
+            @Value("${app.kernel-core.payments.default-provider:MYCOOLPAY}") String defaultPaymentProvider) {
         this.createWalletUseCase = createWalletUseCase;
         this.getWalletUseCase = getWalletUseCase;
         this.creditWalletUseCase = creditWalletUseCase;
@@ -59,7 +70,10 @@ public class WalletController {
         this.freezeWalletUseCase = freezeWalletUseCase;
         this.unfreezeWalletUseCase = unfreezeWalletUseCase;
         this.getTransactionHistoryUseCase = getTransactionHistoryUseCase;
+        this.initiateTopUpUseCase = initiateTopUpUseCase;
+        this.confirmTopUpUseCase = confirmTopUpUseCase;
         this.policyRepo = policyRepo;
+        this.defaultPaymentProvider = defaultPaymentProvider;
     }
 
     @PostMapping
@@ -147,6 +161,40 @@ public class WalletController {
                 .flatMap(tenantId -> unfreezeWalletUseCase.unfreeze(tenantId, userId, null)
                         .flatMap(wallet -> policyRepo.findByTenant(tenantId)
                                 .map(policy -> WalletResponse.from(wallet, policy))));
+    }
+
+    @PostMapping("/top-up")
+    @PreAuthorize("@memberOwnershipValidator.isOwnerOrAdmin(#memberId.toString())")
+    public Mono<TopUpResponse> topUp(
+            @PathVariable UUID memberId,
+            @Valid @RequestBody TopUpRequest request) {
+        UserId userId = UserId.of(memberId.toString());
+        String provider = (request.provider() == null || request.provider().isBlank())
+                ? defaultPaymentProvider
+                : request.provider();
+        return TenantContextHolder.getTenantId()
+                .flatMap(tenantId -> initiateTopUpUseCase.initiateTopUp(
+                        tenantId, userId, request.amount(), provider, request.method(),
+                        request.payerReference(), request.idempotencyKey()))
+                .map(TopUpResponse::from);
+    }
+
+    /**
+     * Réconcilie une recharge avec la passerelle et crédite le wallet si le paiement est
+     * confirmé. Sert de repli manuel quand le callback de la passerelle n'est pas arrivé ;
+     * rejouable sans risque de double crédit.
+     */
+    @PostMapping("/top-ups/{reference}/confirm")
+    @PreAuthorize("@memberOwnershipValidator.isOwnerOrAdmin(#memberId.toString())")
+    public Mono<TopUpStatusResponse> confirmTopUp(
+            @PathVariable UUID memberId,
+            @PathVariable String reference) {
+        return confirmTopUpUseCase.confirm(reference)
+                // La recharge est toujours créditée à son propriétaire légitime, mais renvoyer
+                // l'état d'une recharge tierce exposerait montant et numéro de payeur d'autrui.
+                .flatMap(request -> request.memberId().value().equals(memberId)
+                        ? Mono.just(TopUpStatusResponse.from(request))
+                        : Mono.error(new ForbiddenException("Cette recharge n'appartient pas à ce membre")));
     }
 
     @GetMapping("/transactions")

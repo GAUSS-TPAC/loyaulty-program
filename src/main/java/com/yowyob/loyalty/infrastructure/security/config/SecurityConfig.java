@@ -65,7 +65,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/register",
                                 // Non rattaché à un tenant : protégé par PlatformAdminAuthFilter
                                 // (secret statique X-Platform-Admin-Key), pas par JWT/clé API.
-                                "/api/v1/admin/platform/**"
+                                "/api/v1/admin/platform/**",
+                                // Callbacks de la passerelle de paiement : appelés par Kernel Core,
+                                // donc sans JWT. Protégés par PaymentCallbackAuthFilter
+                                // (secret statique X-Payment-Callback-Key).
+                                "/api/v1/payments/callbacks/**"
                         ).permitAll()
                         .anyExchange().authenticated()
                 )

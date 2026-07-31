@@ -128,6 +128,19 @@ app:
     organization-code: ${KERNEL_ORGANIZATION_CODE:ORG-AUTOCOLEEXCE-1111}
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
+    # Passerelle de paiement KernelCore (POST /api/payments/orders).
+    # Desactivee par defaut : sans credentials valides, PaymentGatewayStub prend le relais
+    # et les recharges ne sont pas encaissees (log WARN au demarrage).
+    payments:
+      enabled: ${KERNEL_PAYMENTS_ENABLED:false}
+      # Aucun PlatformServiceCode LOYALTY n'existe dans le catalogue KernelCore ;
+      # ORGANIZATION est toujours effectif pour une organisation, meme sans abonnement.
+      service-code: ${KERNEL_PAYMENTS_SERVICE_CODE:ORGANIZATION}
+      # URL publique rappelee par KernelCore en fin de parcours de paiement.
+      callback-url: ${KERNEL_PAYMENTS_CALLBACK_URL:}
+      # Secret attendu dans X-Payment-Callback-Key. Vide = route de callback fermee.
+      callback-secret: ${KERNEL_PAYMENTS_CALLBACK_SECRET:}
+      default-provider: ${KERNEL_PAYMENTS_DEFAULT_PROVIDER:MYCOOLPAY}
 
   bonification:
     enabled: ${BONIFICATION_ENABLED:true}

@@ -43,20 +43,31 @@ public class InitiateWithdrawalHandler implements InitiateWithdrawalUseCase {
                 if (result.otpRequired()) {
                     return Mono.error(new WalletDomainException("OTP requis pour ce retrait — utilisez le flow de confirmation OTP"));
                 }
+                // Kernel Core n'expose aucun endpoint de décaissement : le retrait est tracé
+                // ici et reste à exécuter hors passerelle, d'où une référence locale et
+                // l'absence d'URL de redirection.
                 String externalRef = UUID.randomUUID().toString();
-                Instant expiresAt = Instant.now().plus(PAYMENT_EXPIRY);
+                Instant now = Instant.now();
+                Instant expiresAt = now.plus(PAYMENT_EXPIRY);
                 PaymentRequest paymentRequest = new PaymentRequest(
                     UUID.randomUUID(),
+                    tenantId,
+                    result.updatedWallet().getId(),
+                    memberId,
                     null,
                     externalRef,
                     provider,
+                    null,
                     PaymentDirection.OUTBOUND,
                     amount,
                     result.updatedWallet().getCurrencyCode(),
-                    amount,
-                    BigDecimal.ONE,
+                    targetAccount,
+                    null,
+                    null,
+                    idempotencyKey,
                     PaymentStatus.PENDING,
-                    Instant.now(),
+                    null,
+                    now,
                     null,
                     expiresAt
                 );
