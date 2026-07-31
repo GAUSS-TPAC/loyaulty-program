@@ -82,9 +82,18 @@ async function requestWithHeaders<T>(
         } catch {
             // corps non JSON (proxy, HTML d'erreur…) : on garde le texte brut
         }
+        // Le backend detaille les champs invalides dans `errors` (ex:
+        // {"email":"must not be blank"}). Sans ca l'utilisateur ne lit que
+        // "Erreur de validation des champs", sans savoir lequel corriger.
+        // On ignore les valeurs non-textuelles : `errors` transporte aussi des
+        // structures (ex: `organizations` sur ORGANIZATION_SELECTION_REQUIRED).
+        const fieldErrors = Object.entries(problem?.errors ?? {})
+            .filter(([, msg]) => typeof msg === "string")
+            .map(([field, msg]) => `${field} : ${msg}`);
+
         throw new ApiError(
             res.status,
-            problem?.detail ?? `[${res.status}] ${text}`,
+            [problem?.detail ?? `[${res.status}] ${text}`, ...fieldErrors].join(" — "),
             problem
         );
     }
