@@ -39,3 +39,6 @@ build/
 
 .CLAUDE.md
 .claude
+
+### graphify ###
+graphify-out/

@@ -137,3 +137,13 @@ Copy `.env.example` to `.env` before first run. Frontend uses `loyalty-program-f
 ## Database Migrations
 
 Liquibase changelogs are in `src/main/resources/db/changelog/`, using the formatted-SQL changelog format (plain `.sql` files with `--liquibase formatted sql` / `--changeset` header comments), included in order from `db.changelog-master.yaml`. Liquibase runs on startup via synchronous JDBC even though the app is reactive (Spring JDBC bridge). New migrations must follow the `{next}-description.sql` naming convention and be added to the master changelog. Changesets containing dollar-quoted PL/pgSQL blocks (`DO $$ ... END $$;`, `CREATE FUNCTION ... LANGUAGE plpgsql`) must set `splitStatements:false` so Liquibase doesn't split on the semicolons inside the block.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
