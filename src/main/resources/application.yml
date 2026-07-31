@@ -121,7 +121,11 @@ app:
     # Tenant plateforme KernelCore (X-Tenant-Id) sous lequel /api/v1/auth/login se connecte.
     tenant-id: ${KERNEL_TENANT_ID:}
     # Organisation KernelCore cible pour l'inscription publique (POST /api/v1/auth/register).
-    organization-code: ${KERNEL_ORGANIZATION_CODE:}
+    # Defaut = la seule organisation existante sur kernel-core.yowyob.com sous le tenant
+    # 11111111-… (verifie via /api/auth/discover-contexts). Sans valeur, AuthService.register
+    # rejette toute inscription : on prefere un defaut fonctionnel a une prod bloquee.
+    # Surcharger par KERNEL_ORGANIZATION_CODE des qu'une organisation dediee existe.
+    organization-code: ${KERNEL_ORGANIZATION_CODE:ORG-AUTOCOLEEXCE-1111}
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
 
