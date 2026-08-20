@@ -7,15 +7,18 @@ Ce document répertorie l'enchaînement exact des requêtes HTTP (via `curl`) po
 ## Variables Globales de l'Environnement
 
 Pour exécuter ces commandes, remplacez les valeurs ou définissez-les dans votre shell :
+> Les credentials ne sont plus en dur dans ce fichier : exporte-les depuis ton shell
+> (ou un gestionnaire de secrets) avant de jouer les commandes. Ne jamais les recommiter.
+
 ```bash
 export BASE_URL="https://kernel-core.yowyob.com"
 export CLIENT_ID="prod-platform-backend"
-export API_KEY="VbWi225xzYPoD8rQ2FRniTAqkylh34XYeWxa9HCU"
+export API_KEY="${KERNEL_API_KEY:?definir dans ton shell, ne jamais commiter}"
 export TENANT_ID="11111111-1111-1111-1111-111111111111"
 
 # Identifiants du Business Actor principal
-export USER_EMAIL="piodjiele@gmail.com"
-export USER_PASS="Password.237"
+export USER_EMAIL="${KERNEL_USER_EMAIL:?}"
+export USER_PASS="${KERNEL_USER_PASS:?}"
 ```
 
 ---

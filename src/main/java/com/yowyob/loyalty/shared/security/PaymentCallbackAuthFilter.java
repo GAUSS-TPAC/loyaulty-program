@@ -1,5 +1,6 @@
 package com.yowyob.loyalty.shared.security;
 
+import com.yowyob.loyalty.shared.util.RequestPaths;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -7,7 +8,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
+
 import reactor.core.publisher.Mono;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 /**
  * Garde d'accès des callbacks de la passerelle de paiement
@@ -36,17 +41,27 @@ public class PaymentCallbackAuthFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String path = exchange.getRequest().getURI().getPath();
+        String path = RequestPaths.withinApplication(exchange);
         if (!path.startsWith(CALLBACK_PATH_PREFIX)) {
             return chain.filter(exchange);
         }
 
         String provided = exchange.getRequest().getHeaders().getFirst(SECRET_HEADER);
-        if (configuredSecret.isBlank() || provided == null || !provided.equals(configuredSecret)) {
+        if (configuredSecret.isBlank() || provided == null || !secretMatches(provided)) {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
 
         return chain.filter(exchange);
+    }
+
+    /**
+     * Comparaison à temps constant : un {@code String.equals} sort à la première
+     * différence, ce qui laisse fuir la longueur du préfixe correct octet par octet.
+     */
+    private boolean secretMatches(String provided) {
+        return MessageDigest.isEqual(
+                provided.getBytes(StandardCharsets.UTF_8),
+                configuredSecret.getBytes(StandardCharsets.UTF_8));
     }
 }

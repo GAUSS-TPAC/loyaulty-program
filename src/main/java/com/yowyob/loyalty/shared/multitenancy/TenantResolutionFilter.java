@@ -5,6 +5,7 @@ import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreTenantAdap
 import com.yowyob.loyalty.infrastructure.redis.adapter.TenantCacheAdapter;
 import com.yowyob.loyalty.shared.exception.TenantNotFoundException;
 import com.yowyob.loyalty.shared.security.JwtClaimsExtractor;
+import com.yowyob.loyalty.shared.util.RequestPaths;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
+
 import reactor.core.publisher.Mono;
 
 @Component
@@ -40,7 +42,7 @@ public class TenantResolutionFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String path = exchange.getRequest().getURI().getPath();
+        String path = RequestPaths.withinApplication(exchange);
         for (String pub : PUBLIC_PATHS) {
             if (path.startsWith(pub)) return chain.filter(exchange);
         }

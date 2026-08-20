@@ -113,6 +113,13 @@ logging:
 
 # ── Configuration Kernel Core ────────────────────────────────
 app:
+  # ── CORS ────────────────────────────────────────────────────
+  # Combinees a allowCredentials(true) cote CorsConfig, ces origines peuvent emettre
+  # des requetes authentifiees : n'y mettre que des origines de confiance. Les origines
+  # de developpement (localhost) sont ajoutees par application-dev.yml uniquement.
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://loyalty.yowyob.com,https://dashboard.yowyob.com}
+
   kernel-core:
     base-url: ${KERNEL_CORE_URL:http://localhost:8090}
     service-client-id: ${KERNEL_SERVICE_CLIENT_ID:loyalty-service}
