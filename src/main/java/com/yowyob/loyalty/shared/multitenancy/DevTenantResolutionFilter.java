@@ -4,6 +4,7 @@ import com.yowyob.loyalty.domain.shared.model.TenantId;
 import com.yowyob.loyalty.domain.tenant.model.enums.TenantPlan;
 import com.yowyob.loyalty.domain.tenant.model.enums.TenantStatus;
 import com.yowyob.loyalty.shared.security.JwtClaimsExtractor;
+import com.yowyob.loyalty.shared.util.RequestPaths;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
@@ -12,8 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
-import reactor.core.publisher.Mono;
 
+import reactor.core.publisher.Mono;
 import java.util.UUID;
 
 @Component
@@ -34,7 +35,7 @@ public class DevTenantResolutionFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        if (isPublicPath(exchange.getRequest().getURI().getPath())) {
+        if (isPublicPath(RequestPaths.withinApplication(exchange))) {
             return chain.filter(exchange);
         }
 

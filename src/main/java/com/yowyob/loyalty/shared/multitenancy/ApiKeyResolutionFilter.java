@@ -4,6 +4,7 @@ import com.yowyob.loyalty.application.tenant.ApiKeyService;
 import com.yowyob.loyalty.domain.tenant.model.ApiKey;
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreTenantAdapter;
 import com.yowyob.loyalty.infrastructure.redis.adapter.TenantCacheAdapter;
+import com.yowyob.loyalty.shared.util.RequestPaths;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -17,8 +18,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
-import reactor.core.publisher.Mono;
 
+import reactor.core.publisher.Mono;
 import java.util.List;
 
 /**
@@ -56,7 +57,7 @@ public class ApiKeyResolutionFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String path = exchange.getRequest().getURI().getPath();
+        String path = RequestPaths.withinApplication(exchange);
         for (String pub : PUBLIC_PATHS) {
             if (path.startsWith(pub)) return chain.filter(exchange);
         }
