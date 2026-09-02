@@ -370,6 +370,98 @@
     "resendSending": "Envoi en cours...",
     "resendDone": "Si un compte non vérifié correspond à cette adresse, un nouvel email vient de partir."
   },
+  "PlatformAdmin": {
+    "unlock": {
+      "title": "Console plateforme",
+      "description": "Accès réservé à l'équipe Yowyob. Collez le secret plateforme.",
+      "secretLabel": "Secret plateforme",
+      "showSecret": "Afficher le secret",
+      "hideSecret": "Masquer le secret",
+      "submit": "Déverrouiller",
+      "tenantPrompt": "Vous êtes un tenant ?",
+      "tenantLink": "Portail développeur"
+    },
+    "header": {
+      "title": "Console Plateforme",
+      "badge": "Organisations",
+      "logout": "Déconnexion"
+    },
+    "title": "Organisations",
+    "subtitle": "Tenants abonnés au service loyalty (Kernel Core + facturation locale).",
+    "actions": {
+      "export": "Exporter CSV",
+      "refresh": "Rafraîchir",
+      "retry": "Réessayer"
+    },
+    "error": {
+      "title": "Impossible de charger les organisations"
+    },
+    "stats": {
+      "organisations": "Organisations abonnées",
+      "organisationsHint": "total plateforme",
+      "organisationsHintFiltered": "sur {total} au total",
+      "active": "Abonnements actifs",
+      "activeHint": "{percent} % de la sélection",
+      "activeHintEmpty": "aucun abonnement",
+      "points": "Points générés",
+      "pointsHint": "{count} points",
+      "pointsHintEmpty": "aucun point généré",
+      "revenue": "Revenu encaissé",
+      "revenueHint": "factures payées"
+    },
+    "filters": {
+      "searchPlaceholder": "Rechercher une organisation, un tenant ID, un plan…",
+      "all": "Tous",
+      "reset": "Réinitialiser"
+    },
+    "status": {
+      "ACTIVE": "Actif",
+      "TRIAL": "Essai",
+      "PAST_DUE": "Impayé",
+      "CANCELLED": "Résilié",
+      "EXPIRED": "Expiré"
+    },
+    "chart": {
+      "title": "Points générés par organisation",
+      "titleTop": "Points générés par organisation (top 10)",
+      "leader": "En tête :",
+      "points": "points générés"
+    },
+    "table": {
+      "organisation": "Organisation",
+      "plan": "Plan",
+      "status": "Statut",
+      "periodEnd": "Fin de période",
+      "points": "Points générés",
+      "paid": "Payé",
+      "copyId": "Copier le tenant ID",
+      "trialUntil": "essai jusqu'au {date}",
+      "count": "{count, plural, one {# organisation} other {# organisations}}",
+      "countFiltered": "{count, plural, one {# organisation} other {# organisations}} sur {total}"
+    },
+    "empty": {
+      "title": "Aucune organisation abonnée",
+      "description": "Les tenants apparaîtront ici dès qu'ils auront souscrit un abonnement au service loyalty."
+    },
+    "noResults": {
+      "title": "Aucun résultat",
+      "description": "Aucune organisation ne correspond à ces filtres.",
+      "reset": "Réinitialiser les filtres"
+    },
+    "csv": {
+      "filename": "organisations-loyalty",
+      "organisation": "Organisation",
+      "tenantId": "Tenant ID",
+      "plan": "Plan",
+      "planCode": "Code plan",
+      "status": "Statut",
+      "trialEnd": "Fin d'essai",
+      "periodEnd": "Fin de période",
+      "points": "Points générés",
+      "paid": "Montant payé",
+      "currency": "Devise"
+    }
+  },
   "Account": {
     "forgotTitle": "Mot de passe oublié",
     "forgotDescription": "Saisissez l'adresse email de votre compte : nous vous enverrons un lien de réinitialisation.",

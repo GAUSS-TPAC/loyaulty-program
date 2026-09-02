@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -99,6 +100,8 @@ public class KernelCoreAuthAdapter {
                         resp -> Mono.error(new KernelCoreUnavailableException("KernelCore indisponible pour l'authentification")))
                 .bodyToMono(LOGIN_TYPE)
                 .flatMap(this::unwrapLogin)
+                .onErrorMap(WebClientRequestException.class, ex -> new KernelCoreUnavailableException(
+                        "KernelCore injoignable (authentification): " + ex.getMessage()))
                 .doOnError(e -> log.warn("Échec authentification KernelCore: {}", e.getMessage()));
     }
 
@@ -121,6 +124,8 @@ public class KernelCoreAuthAdapter {
                         resp -> Mono.error(new KernelCoreUnavailableException("KernelCore indisponible pour la découverte des contextes")))
                 .bodyToMono(DISCOVER_TYPE)
                 .flatMap(this::unwrapContexts)
+                .onErrorMap(WebClientRequestException.class, ex -> new KernelCoreUnavailableException(
+                        "KernelCore injoignable (découverte des contextes): " + ex.getMessage()))
                 .doOnError(e -> log.warn("Échec découverte des contextes KernelCore: {}", e.getMessage()));
     }
 
@@ -167,6 +172,8 @@ public class KernelCoreAuthAdapter {
                             response.getData().getSelectionToken(),
                             response.getData().getContexts().get(0).getContextId()));
                 })
+                .onErrorMap(WebClientRequestException.class, ex -> new KernelCoreUnavailableException(
+                        "KernelCore injoignable (découverte du contexte d'inscription): " + ex.getMessage()))
                 .doOnError(e -> log.warn("Échec découverte du contexte d'inscription KernelCore: {}", e.getMessage()));
     }
 
@@ -203,6 +210,8 @@ public class KernelCoreAuthAdapter {
                     }
                     return Mono.just(response.getData());
                 })
+                .onErrorMap(WebClientRequestException.class, ex -> new KernelCoreUnavailableException(
+                        "KernelCore injoignable (inscription): " + ex.getMessage()))
                 .doOnError(e -> log.warn("Échec inscription KernelCore: {}", e.getMessage()));
     }
 
