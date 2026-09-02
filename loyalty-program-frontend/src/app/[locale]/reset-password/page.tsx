@@ -20,10 +20,13 @@ export default function ResetPasswordPage() {
 
   const t = useTranslations("Account");
 
-  // Le jeton arrive dans l'URL du lien reçu par email. Lu depuis window plutôt que via
-  // useSearchParams, qui imposerait une frontière Suspense au prérendu de cette page.
+  // Le jeton arrive dans l'URL du lien reçu par email. Le nom du paramètre dépend du
+  // gabarit d'email de KernelCore, que ce dépôt ne contrôle pas : on accepte les deux
+  // conventions plutôt que de rendre le lien inopérant sur un écart de nommage.
+  // Lu depuis window plutôt que via useSearchParams, qui imposerait une frontière Suspense.
   useEffect(() => {
-    const fromUrl = new URLSearchParams(window.location.search).get("token");
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("token") ?? params.get("resetToken");
     // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture unique de l'URL au montage
     setToken(fromUrl);
     if (!fromUrl) setError(t("missingToken"));

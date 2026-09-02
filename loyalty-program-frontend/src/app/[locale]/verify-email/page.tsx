@@ -23,7 +23,10 @@ export default function VerifyEmailPage() {
   const tRegister = useTranslations("Register");
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("token");
+    // Nom du paramètre non contrôlé par ce dépôt (gabarit d'email KernelCore) : on accepte
+    // les deux conventions plutôt que de rendre le lien inopérant sur un écart de nommage.
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token") ?? params.get("verificationToken");
     if (!token) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture unique de l'URL au montage
       setStatus("failed");
