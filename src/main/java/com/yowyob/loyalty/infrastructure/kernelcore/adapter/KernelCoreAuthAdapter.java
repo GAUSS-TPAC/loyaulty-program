@@ -1,5 +1,7 @@
 package com.yowyob.loyalty.infrastructure.kernelcore.adapter;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelApiResponse;
 import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelChangePasswordRequestDto;
 import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelConfirmEmailVerificationRequestDto;
@@ -49,6 +51,9 @@ public class KernelCoreAuthAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(KernelCoreAuthAdapter.class);
 
+    /** Lecture des corps d'erreur seulement : aucune configuration partagée à respecter. */
+    private static final ObjectMapper ERROR_MAPPER = new ObjectMapper();
+
     private static final ParameterizedTypeReference<KernelApiResponse<KernelLoginResponseDto>> LOGIN_TYPE =
             new ParameterizedTypeReference<>() {};
 
@@ -95,7 +100,7 @@ public class KernelCoreAuthAdapter {
                                 "Un code vient déjà d'être envoyé — patientez avant de réessayer")))
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(new InvalidCredentialsException("Authentification refusée: " + body))))
+                                .flatMap(body -> Mono.error(new InvalidCredentialsException("Authentification refusée: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException("KernelCore indisponible pour l'authentification")))
                 .bodyToMono(LOGIN_TYPE)
@@ -119,7 +124,7 @@ public class KernelCoreAuthAdapter {
                         resp -> Mono.error(new InvalidCredentialsException("Email ou mot de passe incorrect")))
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(new InvalidCredentialsException("Découverte des contextes refusée: " + body))))
+                                .flatMap(body -> Mono.error(new InvalidCredentialsException("Découverte des contextes refusée: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException("KernelCore indisponible pour la découverte des contextes")))
                 .bodyToMono(DISCOVER_TYPE)
@@ -155,7 +160,7 @@ public class KernelCoreAuthAdapter {
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new RegistrationFailedException(
-                                        "Découverte du contexte d'inscription refusée: " + body))))
+                                        "Découverte du contexte d'inscription refusée: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException(
                                 "KernelCore indisponible pour la découverte du contexte d'inscription")))
@@ -191,7 +196,7 @@ public class KernelCoreAuthAdapter {
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new RegistrationFailedException(
-                                        "Inscription refusée: " + body))))
+                                        "Inscription refusée: " + explain(body)))))
                 // KernelCore rend un 500 — et non un 409 — sur doublon ("An actor already exists
                 // with email: …"). Traduire tout 5xx en indisponibilité afficherait "KernelCore
                 // indisponible" à un utilisateur dont le seul tort est d'avoir deja un compte, en
@@ -201,7 +206,7 @@ public class KernelCoreAuthAdapter {
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(body.isBlank()
                                         ? new KernelCoreUnavailableException("KernelCore indisponible pour l'inscription")
-                                        : new RegistrationFailedException("Inscription refusée: " + body))))
+                                        : new RegistrationFailedException("Inscription refusée: " + explain(body)))))
                 .bodyToMono(SIGNUP_TYPE)
                 .flatMap(response -> {
                     if (!response.isSuccess() || response.getData() == null) {
@@ -229,7 +234,7 @@ public class KernelCoreAuthAdapter {
                         resp -> Mono.error(new InvalidCredentialsException("Code de vérification invalide ou expiré")))
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(new InvalidCredentialsException("Vérification refusée: " + body))))
+                                .flatMap(body -> Mono.error(new InvalidCredentialsException("Vérification refusée: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException("KernelCore indisponible pour la vérification MFA")))
                 .bodyToMono(LOGIN_TYPE)
@@ -256,7 +261,7 @@ public class KernelCoreAuthAdapter {
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new PasswordResetFailedException(
-                                        "Demande de réinitialisation refusée: " + body))))
+                                        "Demande de réinitialisation refusée: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException(
                                 "KernelCore indisponible pour la réinitialisation de mot de passe")))
@@ -279,7 +284,7 @@ public class KernelCoreAuthAdapter {
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new PasswordResetFailedException(
-                                        "Émission du jeton de réinitialisation refusée: " + body))))
+                                        "Émission du jeton de réinitialisation refusée: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException(
                                 "KernelCore indisponible pour l'envoi du lien de réinitialisation")))
@@ -298,7 +303,7 @@ public class KernelCoreAuthAdapter {
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new PasswordResetFailedException(
-                                        "Réinitialisation refusée (lien expiré ou déjà utilisé): " + body))))
+                                        "Réinitialisation refusée (lien expiré ou déjà utilisé): " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException(
                                 "KernelCore indisponible pour la réinitialisation de mot de passe")))
@@ -322,11 +327,11 @@ public class KernelCoreAuthAdapter {
                 .onStatus(status -> status.value() == 400 || status.value() == 401 || status.value() == 403,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new InvalidCredentialsException(
-                                        "Changement de mot de passe refusé: " + body))))
+                                        "Changement de mot de passe refusé: " + explain(body)))))
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new InvalidCredentialsException(
-                                        "Changement de mot de passe refusé: " + body))))
+                                        "Changement de mot de passe refusé: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException(
                                 "KernelCore indisponible pour le changement de mot de passe")))
@@ -350,7 +355,7 @@ public class KernelCoreAuthAdapter {
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new EmailVerificationFailedException(
-                                        "Renvoi de la vérification refusé: " + body))))
+                                        "Renvoi de la vérification refusé: " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException(
                                 "KernelCore indisponible pour la vérification d'adresse email")))
@@ -369,7 +374,7 @@ public class KernelCoreAuthAdapter {
                 .onStatus(HttpStatusCode::is4xxClientError,
                         resp -> resp.bodyToMono(String.class).defaultIfEmpty("")
                                 .flatMap(body -> Mono.error(new EmailVerificationFailedException(
-                                        "Vérification refusée (lien expiré ou déjà utilisé): " + body))))
+                                        "Vérification refusée (lien expiré ou déjà utilisé): " + explain(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         resp -> Mono.error(new KernelCoreUnavailableException(
                                 "KernelCore indisponible pour la vérification d'adresse email")))
@@ -463,6 +468,29 @@ public class KernelCoreAuthAdapter {
         }
         return Mono.just(KernelLoginResultDto.authenticated(token, safeOrganizations(response.getData()),
                 KernelLoginResultDto.Session.from(response.getData())));
+    }
+
+    /**
+     * Kernel Core rend ses erreurs en enveloppe JSON. Concaténer le corps brut dans le message
+     * remonté au client affichait à l'utilisateur final
+     * {@code Inscription refusée: {"success":false,"data":null,"message":"A user already exists…"}} :
+     * la seule information exploitable y était noyée. On n'en garde que {@code message}, et on
+     * retombe sur le corps brut quand ce n'est pas du JSON (page d'erreur d'un proxy, corps vide).
+     */
+    static String explain(String body) {
+        if (body == null || body.isBlank()) {
+            return "réponse vide";
+        }
+        try {
+            JsonNode node = ERROR_MAPPER.readTree(body);
+            JsonNode message = node.get("message");
+            if (message != null && message.isTextual() && !message.asText().isBlank()) {
+                return message.asText();
+            }
+        } catch (Exception e) {
+            // Corps non JSON : on rend le texte tel quel, tronqué.
+        }
+        return body.length() > 300 ? body.substring(0, 300) + "…" : body;
     }
 
     private static List<KernelOrganizationSummaryDto> safeOrganizations(KernelLoginResponseDto data) {

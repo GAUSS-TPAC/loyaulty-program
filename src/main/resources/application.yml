@@ -134,7 +134,11 @@ app:
     # Surcharger par KERNEL_ORGANIZATION_CODE des qu'une organisation dediee existe.
     organization-code: ${KERNEL_ORGANIZATION_CODE:ORG-AUTOCOLEEXCE-1111}
     connect-timeout-ms: 3000
-    read-timeout-ms: 5000
+    # Mesure du 2026-09-02 : POST /api/auth/login sur kernel-core.yowyob.com répond en 5,5 s
+    # (bcrypt + résolution des permissions + émission du défi MFA). À 5000 ms, une connexion
+    # sur deux échouait en ReadTimeoutException remontée à l'utilisateur en « KernelCore
+    # indisponible ». La marge doit rester large : c'est un appel serveur-à-serveur.
+    read-timeout-ms: ${KERNEL_READ_TIMEOUT_MS:20000}
     # Passerelle de paiement KernelCore (POST /api/payments/orders).
     # Desactivee par defaut : sans credentials valides, PaymentGatewayStub prend le relais
     # et les recharges ne sont pas encaissees (log WARN au demarrage).
