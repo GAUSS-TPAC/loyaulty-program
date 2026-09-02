@@ -5,7 +5,23 @@
  * Le token JWT est automatiquement injecté depuis sessionStorage.
  */
 
+import {
+    endSession,
+    ensureFreshToken,
+    getAccessToken,
+    getApiKey,
+    getOrganizationId,
+    refreshSession,
+} from "./session";
+
 const BASE = "/backend";
+
+/**
+ * Les endpoints d'authentification portent eux-mêmes leurs credentials (mot de passe, code
+ * MFA, refresh token) : les soumettre au rafraîchissement automatique ou à la purge de
+ * session sur 401 rendrait toute erreur de mot de passe indiscernable d'une session morte.
+ */
+const AUTH_ENDPOINT_PREFIX = "/api/v1/auth/";
 
 // ─── Utilitaires de base ────────────────────────────────────────────────────
 
@@ -38,18 +54,9 @@ export class ApiError extends Error {
  * (login email/mot de passe), sinon la clé API (portail développeur "coller sa clé").
  */
 function getAuthHeaders(): HeadersInit {
-    const token =
-        typeof window !== "undefined"
-            ? sessionStorage.getItem("loyalty_jwt_token")
-            : null;
-    const apiKey =
-        typeof window !== "undefined"
-            ? sessionStorage.getItem("loyalty_dev_api_key")
-            : null;
-    const organizationId =
-        typeof window !== "undefined"
-            ? sessionStorage.getItem("loyalty_organization_id")
-            : null;
+    const token = getAccessToken();
+    const apiKey = getApiKey();
+    const organizationId = getOrganizationId();
     return {
         "Content-Type": "application/json",
         ...(token
@@ -107,8 +114,32 @@ async function requestWithHeaders<T>(
     return null as T;
 }
 
-const request = <T>(method: string, path: string, body?: unknown, extraHeaders?: HeadersInit) =>
-    requestWithHeaders<T>(getAuthHeaders, method, path, body, extraHeaders);
+/**
+ * Appel authentifié par la session admin : rafraîchit le jeton avant expiration, et rejoue
+ * une fois la requête si le backend répond quand même 401 (jeton révoqué plus tôt que prévu,
+ * horloge décalée). Ce n'est qu'après un refresh refusé que la session est déclarée morte —
+ * sans ce filet, un unique 401 renvoyait l'utilisateur au formulaire de connexion.
+ */
+async function request<T>(method: string, path: string, body?: unknown, extraHeaders?: HeadersInit): Promise<T> {
+    const isAuthEndpoint = path.startsWith(AUTH_ENDPOINT_PREFIX);
+    if (!isAuthEndpoint) await ensureFreshToken();
+
+    try {
+        return await requestWithHeaders<T>(getAuthHeaders, method, path, body, extraHeaders);
+    } catch (err) {
+        const isSessionLost = err instanceof ApiError && err.status === 401 && !isAuthEndpoint;
+        // Une clé API développeur ne se rafraîchit pas : son 401 est définitif, on le laisse
+        // remonter à l'écran plutôt que de faire croire à une session expirée.
+        if (!isSessionLost || !getAccessToken()) throw err;
+
+        const refreshed = await refreshSession();
+        if (!refreshed) {
+            endSession("expired");
+            throw err;
+        }
+        return await requestWithHeaders<T>(getAuthHeaders, method, path, body, extraHeaders);
+    }
+}
 
 const get = <T>(path: string) => request<T>("GET", path);
 const post = <T>(path: string, body: unknown, headers?: HeadersInit) =>
@@ -714,6 +745,11 @@ export interface LoginResponse {
     mfaRequired?: boolean;
     mfaToken?: string;
     mfaChannel?: string;
+    /** Jetons de session émis par KernelCore, à confier à session.ts (rotation à chaque refresh). */
+    refreshToken?: string;
+    expiresInSeconds?: number;
+    refreshExpiresInSeconds?: number;
+    emailVerified?: boolean;
 }
 
 export interface ConfirmMfaRequest {
@@ -736,6 +772,40 @@ export interface RegisterResponse {
     emailVerified: boolean;
 }
 
+export interface ForgotPasswordRequest {
+    email: string;
+}
+
+export interface ResetPasswordRequest {
+    /** Jeton porté par le lien reçu par email (usage unique, courte durée). */
+    token: string;
+    newPassword: string;
+}
+
+export interface ChangePasswordRequest {
+    currentPassword: string;
+    newPassword: string;
+}
+
+export interface ConfirmEmailRequest {
+    token: string;
+}
+
+/**
+ * Réponse constante des parcours « mot de passe oublié » et « renvoyer la vérification » :
+ * elle ne dit pas si un compte correspond, pour ne pas permettre d'énumérer les adresses.
+ */
+export interface ChallengeAcceptedResponse {
+    status: string;
+}
+
+export interface AccountStatusResponse {
+    email: string;
+    status: string;
+    emailVerified: boolean;
+    mfaEnabled: boolean;
+}
+
 export const authApi = {
     /** POST /api/v1/auth/login — Connexion admin par identifiant/mot de passe (KernelCore).
      *  Peut retourner mfaRequired=true + mfaToken au lieu du token. */
@@ -746,6 +816,29 @@ export const authApi = {
 
     /** POST /api/v1/auth/register — Inscription admin (crée le compte via KernelCore, vérification email requise avant login) */
     register: (data: RegisterRequest) => post<RegisterResponse>("/api/v1/auth/register", data),
+
+    /** POST /api/v1/auth/password/forgot — Envoie le lien de réinitialisation (réponse neutre) */
+    forgotPassword: (data: ForgotPasswordRequest) =>
+        post<ChallengeAcceptedResponse>("/api/v1/auth/password/forgot", data),
+
+    /** POST /api/v1/auth/password/reset — Consomme le jeton du lien et fixe le nouveau mot de passe */
+    resetPassword: (data: ResetPasswordRequest) =>
+        post<AccountStatusResponse>("/api/v1/auth/password/reset", data),
+
+    /** POST /api/v1/auth/password/change — Changement par l'utilisateur connecté (mot de passe actuel exigé) */
+    changePassword: (data: ChangePasswordRequest) =>
+        post<AccountStatusResponse>("/api/v1/auth/password/change", data),
+
+    /** POST /api/v1/auth/email/resend — Renvoie le mail de vérification (appelé sans session) */
+    resendVerification: (data: ForgotPasswordRequest) =>
+        post<ChallengeAcceptedResponse>("/api/v1/auth/email/resend", data),
+
+    /** POST /api/v1/auth/email/confirm — Confirme l'adresse à partir du jeton du lien */
+    confirmEmail: (data: ConfirmEmailRequest) =>
+        post<AccountStatusResponse>("/api/v1/auth/email/confirm", data),
+
+    /** POST /api/v1/auth/logout — Révoque la session côté KernelCore (best-effort) */
+    logout: (refreshToken?: string) => post<void>("/api/v1/auth/logout", { refreshToken }),
 };
 
 // ─── API Accès (rôle de l'utilisateur courant) ────────────────────────────────

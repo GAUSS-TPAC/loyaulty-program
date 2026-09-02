@@ -24,8 +24,25 @@ export default function RegisterPage() {
   // Le compte KernelCore reste EMAIL_VERIFICATION_REQUIRED après l'inscription : on ne
   // redirige pas vers /login (qui échouerait), on affiche l'instruction de vérification.
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  // Le mail de vérification se perd (spam, faute de frappe côté SMTP) : sans renvoi, le
+  // compte créé reste inutilisable et l'utilisateur n'a aucun recours depuis cet écran.
+  const [isResending, setIsResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   const t = useTranslations("Register");
+
+  const handleResend = async () => {
+    if (!registeredEmail) return;
+    setIsResending(true);
+    try {
+      await authApi.resendVerification({ email: registeredEmail });
+      setResent(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Request failed");
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -113,12 +130,23 @@ export default function RegisterPage() {
               <MailCheck className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <span>{t("checkEmailMessage", { email: registeredEmail })}</span>
             </div>
+            {resent && (
+              <p className="text-xs text-muted-foreground text-center">{t("resendDone")}</p>
+            )}
             <Link
               href="/login"
               className="flex w-full items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all shadow-md bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-4 active:scale-[0.98]"
             >
               {t("backToLogin")}
             </Link>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={isResending}
+              className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              {isResending ? t("resendSending") : t("resendVerification")}
+            </button>
           </div>
         ) : (
         <>
