@@ -30,4 +30,7 @@ jobs:
             echo "FRONTEND_MIRROR_TOKEN absent — configure ce secret pour activer le mirroring." >&2
             exit 1
           fi
-          git push "https://x-access-token:${TOKEN}@github.com/GAUSS-TPAC/Loyalty-Program-frontend.git" frontend-mirror-split:main --force
+          # L'organisation a ete renommee GAUSS-TPAC -> LOYALTY-ENGINE : l'ancienne URL
+          # repond "Moved Permanently" et git refuse d'y pousser. Le miroir frontend etait
+          # donc gele au 2026-07-31, date du renommage, et le site servait un build obsolete.
+          git push "https://x-access-token:${TOKEN}@github.com/LOYALTY-ENGINE/Loyalty-Program-frontend.git" frontend-mirror-split:main --force
