@@ -9,6 +9,7 @@ import com.yowyob.loyalty.domain.tenant.model.TenantConfig;
 import com.yowyob.loyalty.domain.tenant.model.enums.TenantPlan;
 import com.yowyob.loyalty.domain.tenant.model.enums.TenantStatus;
 import com.yowyob.loyalty.infrastructure.persistence.tenant.entity.TenantEntity;
+import com.yowyob.loyalty.infrastructure.security.crypto.SecretCipher;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,9 @@ public abstract class TenantMapper {
 
     @Autowired
     protected ObjectMapper objectMapper;
+
+    @Autowired
+    protected SecretCipher secretCipher;
 
     @Mapping(target = "id", expression = "java(mapId(entity.getId()))")
     @Mapping(target = "status", expression = "java(mapStatus(entity.getStatus()))")
@@ -56,10 +60,17 @@ public abstract class TenantMapper {
         return new AuditInfo(entity.getCreatedAt(), entity.getUpdatedAt(), entity.getCreatedBy(), entity.getUpdatedBy());
     }
 
+    /**
+     * Le mot de passe Bonification est le seul secret de TenantConfig : il est chiffré dans le
+     * JSONB et rendu en clair au domaine, qui n'a pas à connaître le stockage. Une valeur non
+     * chiffrée est une valeur historique, relue telle quelle puis chiffrée à la prochaine
+     * écriture — voir SecretCipher.
+     */
     protected TenantConfig parseConfig(String json) {
         if (json == null || json.isBlank()) return TenantConfig.defaults();
         try {
-            return objectMapper.readValue(json, TenantConfig.class);
+            TenantConfig stored = objectMapper.readValue(json, TenantConfig.class);
+            return withBonificationPassword(stored, secretCipher.decrypt(stored.bonificationApiPassword()));
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Erreur de désérialisation de TenantConfig", e);
         }
@@ -68,9 +79,21 @@ public abstract class TenantMapper {
     protected String serializeConfig(TenantConfig config) {
         if (config == null) return "{}";
         try {
-            return objectMapper.writeValueAsString(config);
+            TenantConfig toStore =
+                    withBonificationPassword(config, secretCipher.encrypt(config.bonificationApiPassword()));
+            return objectMapper.writeValueAsString(toStore);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Erreur de sérialisation de TenantConfig", e);
         }
+    }
+
+    private static TenantConfig withBonificationPassword(TenantConfig config, String password) {
+        return new TenantConfig(
+                config.defaultCurrencyCode(),
+                config.walletAutoActivate(),
+                config.pointExpiryDays(),
+                config.notificationChannels(),
+                config.bonificationApiUsername(),
+                password);
     }
 }

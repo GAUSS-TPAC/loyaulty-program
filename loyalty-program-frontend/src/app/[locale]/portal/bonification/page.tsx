@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { bonificationApi } from "@/lib/api";
 import { useAdminLogs } from "@/hooks/useBackend";
+import { BonificationCredentialsCard } from "@/components/BonificationCredentialsCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,9 @@ export default function BonificationPage() {
                     Créditez ou débitez manuellement des points de fidélité pour un membre.
                 </p>
             </div>
+
+            {/* ── Identifiants de l'API partenaire ─────────────────────────────── */}
+            <BonificationCredentialsCard />
 
             <div className="space-y-6">
                 {/* ── Formulaire ajustement ────────────────────────────────────────── */}

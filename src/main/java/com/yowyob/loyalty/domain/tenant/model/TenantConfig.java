@@ -19,6 +19,16 @@ public record TenantConfig(
         notificationChannels = notificationChannels != null ? List.copyOf(notificationChannels) : Collections.emptyList();
     }
 
+    /**
+     * Identifiants de l'API Bonification propres au tenant. Passer {@code null} aux deux
+     * paramètres efface la configuration et fait retomber le tenant sur les identifiants
+     * globaux du déploiement (BONIFICATION_LOGIN/PASSWORD).
+     */
+    public TenantConfig withBonificationCredentials(String username, String password) {
+        return new TenantConfig(defaultCurrencyCode, walletAutoActivate, pointExpiryDays,
+                notificationChannels, username, password);
+    }
+
     public static TenantConfig defaults() {
         return new TenantConfig(
             "XAF",

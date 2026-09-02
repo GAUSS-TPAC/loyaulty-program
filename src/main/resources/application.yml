@@ -164,6 +164,12 @@ app:
     secret: ${PLATFORM_ADMIN_KEY:}
 
   security:
+    # Chiffrement au repos des secrets par tenant stockés dans tenants.config (identifiants
+    # Bonification). Base64 de 32 octets : openssl rand -base64 32
+    # Vide = les valeurs déjà stockées restent lisibles, mais enregistrer de nouveaux
+    # identifiants est refusé plutôt que de les écrire en clair (voir SecretCipher).
+    # Perdre cette clé rend les secrets déjà chiffrés définitivement illisibles.
+    credential-encryption-key: ${CREDENTIAL_ENCRYPTION_KEY:}
     jwt:
       # C'est ici, sous app.security.jwt.*, que JwtProperties/JwtTokenValidator lisent
       # réellement la config JWT — pas sous spring.security.oauth2.resourceserver.jwt.* (qui

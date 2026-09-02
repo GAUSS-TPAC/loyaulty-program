@@ -87,6 +87,14 @@ services:
       - key: KERNEL_PAYMENTS_CALLBACK_SECRET
         sync: false
 
+      # Chiffrement au repos des secrets par tenant (identifiants Bonification).
+      # Base64 de 32 octets exactement : openssl rand -base64 32. Renseignée à la main et
+      # non generateValue, dont la sortie ne décode pas sur 32 octets — l'application
+      # refuserait alors de démarrer. À conserver avec les autres secrets du déploiement :
+      # la perdre rend illisibles les secrets déjà chiffrés.
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        sync: false
+
       # Console plateforme (/api/v1/admin/platform/**) : secret statique, non rattaché à un
       # tenant. Vide = console fermée (401 systématique).
       - key: PLATFORM_ADMIN_KEY

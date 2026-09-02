@@ -527,6 +527,22 @@ export const eventsApi = {
 
 // ─── API Bonification (ajustement interne des points) ───────────────────────
 
+/**
+ * Identifiants Bonification du tenant. Écriture seule : le backend rend l'identifiant pour
+ * dire quel compte est configuré, jamais le mot de passe — un secret qu'une API peut relire
+ * finit dans un cache, un log ou un onglet ouvert.
+ */
+export interface BonificationCredentials {
+    /** false = le tenant utilise les identifiants globaux du déploiement. */
+    configured: boolean;
+    username: string;
+}
+
+export interface BonificationCredentialsRequest {
+    username: string;
+    password: string;
+}
+
 export const bonificationApi = {
     /** POST /api/v1/members/{id}/points/adjust — Crédit/débit manuel de points (admin) */
     adjustPoints: (memberId: string, data: AdjustPointsRequest) =>
@@ -534,6 +550,16 @@ export const bonificationApi = {
             `/api/v1/members/${memberId}/points/adjust`,
             data
         ),
+
+    /** GET /api/v1/bonification/credentials — Quel compte est configuré (sans le mot de passe) */
+    getCredentials: () => get<BonificationCredentials>("/api/v1/bonification/credentials"),
+
+    /** PUT /api/v1/bonification/credentials — Enregistre les identifiants (mot de passe chiffré en base) */
+    saveCredentials: (data: BonificationCredentialsRequest) =>
+        put<BonificationCredentials>("/api/v1/bonification/credentials", data),
+
+    /** DELETE /api/v1/bonification/credentials — Retour aux identifiants globaux du déploiement */
+    clearCredentials: () => del<void>("/api/v1/bonification/credentials"),
 };
 
 // ─── API Système / Santé ─────────────────────────────────────────────────────
