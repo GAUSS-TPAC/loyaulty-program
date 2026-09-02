@@ -70,6 +70,28 @@ services:
         sync: false
       - key: KERNEL_TENANT_ID
         sync: false
+      # Organisation cible de l'inscription publique. Sans elle, /api/v1/auth/register
+      # refuse toute inscription ; le reste du portail fonctionne (voir
+      # KernelCoreCredentialsValidator, qui le signale au démarrage).
+      - key: KERNEL_ORGANIZATION_CODE
+        value: ORG-AUTOCOLEEXCE-1111
+
+      # Passerelle de paiement Kernel Core. Tant que KERNEL_PAYMENTS_ENABLED vaut false,
+      # PaymentGatewayStub sert les recharges : le parcours se déroule de bout en bout mais
+      # aucun encaissement réel n'a lieu. L'activer sans CALLBACK_SECRET laisse la route de
+      # callback fermée (401) : aucun paiement ne serait jamais confirmé.
+      - key: KERNEL_PAYMENTS_ENABLED
+        value: "false"
+      - key: KERNEL_PAYMENTS_CALLBACK_URL
+        sync: false
+      - key: KERNEL_PAYMENTS_CALLBACK_SECRET
+        sync: false
+
+      # Console plateforme (/api/v1/admin/platform/**) : secret statique, non rattaché à un
+      # tenant. Vide = console fermée (401 systématique).
+      - key: PLATFORM_ADMIN_KEY
+        sync: false
+
       - key: JWT_ISSUER_URI
         value: kernel-core
       - key: JWT_JWK_SET_URI
