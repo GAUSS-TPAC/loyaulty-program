@@ -65,6 +65,17 @@ public class KernelCoreCredentialsValidatorTest {
         assertDoesNotThrow(() -> validate(properties("loyalty-service", "changeme"), environment("test")));
     }
 
+    /**
+     * « loyalty-service » est le défaut d'application.yml, mais c'est aussi le client id réel du
+     * déploiement de production (docker-compose.prod.yml) : le prendre pour une valeur d'exemple
+     * y aurait provoqué un refus de démarrage sur une configuration valide.
+     */
+    @Test
+    void acceptsTheDefaultClientIdWhenTheSecretIsReal() {
+        assertDoesNotThrow(() -> validate(properties("loyalty-service", "by4dMR5-cle-reelle"),
+                environment("stub")));
+    }
+
     /** Tenant et organisation manquants dégradent une fonctionnalité, ils ne bloquent pas le service. */
     @Test
     void doesNotBlockStartupOnMissingTenantOrOrganization() {

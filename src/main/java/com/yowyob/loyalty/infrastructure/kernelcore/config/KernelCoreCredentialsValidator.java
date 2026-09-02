@@ -28,8 +28,13 @@ public class KernelCoreCredentialsValidator implements InitializingBean {
 
     private static final Logger log = LoggerFactory.getLogger(KernelCoreCredentialsValidator.class);
 
-    /** Valeurs d'exemple d'application.yml et de .env.example : présentes = non configurées. */
-    private static final List<String> PLACEHOLDERS = List.of("changeme", "loyalty-service", "à-définir", "todo");
+    /**
+     * Valeurs d'exemple de la clé. Volontairement limitée au secret : le client id par défaut
+     * d'application.yml, « loyalty-service », est aussi l'identifiant réellement utilisé par le
+     * déploiement de production (docker-compose.prod.yml). Le traiter comme une valeur d'exemple
+     * y provoquerait un refus de démarrage sur une configuration parfaitement valide.
+     */
+    private static final List<String> SECRET_PLACEHOLDERS = List.of("changeme", "à-définir", "todo", "secret");
 
     /**
      * « stub » n'en fait volontairement pas partie : le déploiement Render l'active en
@@ -53,7 +58,9 @@ public class KernelCoreCredentialsValidator implements InitializingBean {
         String clientId = properties.getServiceClientId();
         String clientSecret = properties.getServiceClientSecret();
 
-        if (isUnset(clientId) || isUnset(clientSecret)) {
+        // Seul le secret est confronté aux valeurs d'exemple : c'est lui qui atteste d'une
+        // configuration réelle. Le client id n'est vérifié que sur sa présence.
+        if (isBlank(clientId) || isUnset(clientSecret)) {
             String message = "Credentials Kernel Core non configurés : renseignez KERNEL_SERVICE_CLIENT_ID et "
                     + "KERNEL_SERVICE_CLIENT_SECRET (ClientApplication dédiée à ce déploiement). "
                     + "Sans eux, tout appel Kernel Core — connexion comprise — est refusé.";
@@ -93,8 +100,8 @@ public class KernelCoreCredentialsValidator implements InitializingBean {
         return secret.length() <= 4 ? "****" : secret.substring(0, 4) + "…(" + secret.length() + " car.)";
     }
 
-    private static boolean isUnset(String value) {
-        return isBlank(value) || PLACEHOLDERS.contains(value.trim().toLowerCase());
+    private static boolean isUnset(String secret) {
+        return isBlank(secret) || SECRET_PLACEHOLDERS.contains(secret.trim().toLowerCase());
     }
 
     private static boolean isBlank(String value) {
