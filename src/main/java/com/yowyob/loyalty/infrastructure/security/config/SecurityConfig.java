@@ -63,6 +63,15 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/login/mfa",
                                 "/api/v1/auth/register",
+                                // Parcours de récupération de compte : par construction sans session.
+                                // /password/change et /logout en sont exclus, ils exigent un Bearer.
+                                "/api/v1/auth/password/forgot",
+                                "/api/v1/auth/password/reset",
+                                "/api/v1/auth/email/resend",
+                                "/api/v1/auth/email/confirm",
+                                // Le refresh token EST le credential : exiger en plus un access token
+                                // valide rendrait le rafraîchissement impossible une fois celui-ci expiré.
+                                "/api/v1/auth/refresh",
                                 // Non rattaché à un tenant : protégé par PlatformAdminAuthFilter
                                 // (secret statique X-Platform-Admin-Key), pas par JWT/clé API.
                                 "/api/v1/admin/platform/**",

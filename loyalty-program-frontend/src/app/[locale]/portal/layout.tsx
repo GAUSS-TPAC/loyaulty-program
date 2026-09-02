@@ -3,19 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, Link } from "@/i18n/routing";
 import { usePathname } from "next/navigation";
-import { Terminal, Settings, LogOut, Code2, Cpu, Wallet, AppWindow, LayoutDashboard, Menu, X, Zap, Gift, Tag, Megaphone, CreditCard, WifiOff, Key, Webhook, BookOpen, UserPlus, Boxes } from "lucide-react";
+import { Terminal, Settings, LogOut, Code2, Cpu, Wallet, AppWindow, LayoutDashboard, Menu, X, Zap, Gift, Tag, Megaphone, CreditCard, WifiOff, Key, Webhook, BookOpen, UserPlus, Boxes, UserCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAccess } from "@/hooks/useBackend";
 import { flushQueue } from "@/lib/offlineQueue";
-
-const JWT_STORAGE_KEY = "loyalty_jwt_token";
-const API_KEY_STORAGE_KEY = "loyalty_dev_api_key";
+import { authApi } from "@/lib/api";
+import { clearSession, getAccessToken, getApiKey, getRefreshToken, hasSession } from "@/lib/session";
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
+  // Aperçu du credential actif (début du JWT ou de la clé API), pour distinguer d'un coup
+  // d'œil la session utilisée. Jamais affiché en entier : c'est un secret.
+  const [credentialPreview, setCredentialPreview] = useState("");
   const [checked, setChecked] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const router = useRouter();
@@ -45,37 +47,42 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       trySync();
     }
     wasOnline.current = isOnline;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
   useEffect(() => {
-    const token = sessionStorage.getItem(JWT_STORAGE_KEY) || sessionStorage.getItem(API_KEY_STORAGE_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time session read on mount
-    setAuthToken(token);
+    setAuthenticated(hasSession());
+    setCredentialPreview((getAccessToken() ?? getApiKey() ?? "").substring(0, 14));
     setChecked(true);
   }, []);
 
   // Sans session (JWT ou clé API), le portail n'est pas accessible : retour à la
   // landing page, point d'entrée du parcours d'onboarding (login / register).
   useEffect(() => {
-    if (checked && !authToken) {
+    if (checked && !authenticated) {
       router.replace("/");
     }
-  }, [checked, authToken, router]);
+  }, [checked, authenticated, router]);
 
   // Close sidebar drawer on screen transitions or nav clicks
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem(JWT_STORAGE_KEY);
-    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
-    sessionStorage.removeItem("loyalty_organization_id");
+  // La révocation côté KernelCore est tentée d'abord, mais ne conditionne pas la
+  // déconnexion : un backend injoignable ne doit pas retenir l'utilisateur dans sa session.
+  const handleLogout = async () => {
+    const refreshToken = getRefreshToken();
+    try {
+      await authApi.logout(refreshToken ?? undefined);
+    } catch {
+      // révocation best-effort
+    }
+    clearSession();
     router.push("/");
   };
 
-  if (!checked || !authToken) return <div className="min-h-screen bg-background" />;
+  if (!checked || !authenticated) return <div className="min-h-screen bg-background" />;
 
   const navItems = [
     { name: tNav("overview"), href: "/portal", exact: true, icon: LayoutDashboard },
@@ -94,6 +101,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { name: tNav("eventLogs"), href: "/portal/logs", icon: Terminal },
     { name: "Livraisons Webhook", href: "/portal/webhook-logs", icon: Terminal },
     { name: "Documentation", href: "/portal/docs", icon: BookOpen },
+    { name: "Mon compte", href: "/portal/account", icon: UserCog },
     ...(access?.tenantAdmin
       ? [{ name: "Développeurs", href: "/portal/developers", icon: UserPlus }]
       : []),
@@ -129,8 +137,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </div>
 
         <div className="p-6 pt-4 pb-4 border-b border-border">
-          <div className="text-xs text-muted-foreground truncate bg-muted px-2 py-1 rounded-md border border-border" title={authToken || ""}>
-            {tSide("key")}{authToken ? `${authToken.substring(0, 14)}...` : ""}
+          <div className="text-xs text-muted-foreground truncate bg-muted px-2 py-1 rounded-md border border-border">
+            {tSide("key")}{credentialPreview ? `${credentialPreview}...` : ""}
           </div>
         </div>
 

@@ -5,11 +5,18 @@ import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreAuthAdapte
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreTenantAdapter;
 import com.yowyob.loyalty.infrastructure.kernelcore.config.KernelCoreProperties;
 import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelDiscoveredContextDto;
+import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelForgotPasswordResponseDto;
+import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelIssuedAuthChallengeDto;
+import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelPasswordResetContextDto;
+import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelRefreshTokenResponseDto;
 import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelLoginResultDto;
 import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelOrganizationSummaryDto;
+import com.yowyob.loyalty.infrastructure.kernelcore.dto.KernelUserAccountDto;
 import com.yowyob.loyalty.shared.exception.OrganizationNotAccessibleException;
 import com.yowyob.loyalty.shared.exception.OrganizationSelectionRequiredException;
 import com.yowyob.loyalty.shared.exception.RegistrationFailedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -33,6 +40,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final KernelCoreAuthAdapter kernelCoreAuthAdapter;
     private final KernelCoreProperties kernelCoreProperties;
@@ -78,7 +87,7 @@ public class AuthService {
     private Mono<LoginOutcome> toAuthenticatedOutcome(KernelLoginResultDto result, String organizationId, String email) {
         boolean hasNoChoice = (organizationId == null || organizationId.isBlank());
         if (result.organizations().isEmpty() && hasNoChoice) {
-            return provisionDefaultOrganization(result.accessToken(), email)
+            return provisionDefaultOrganization(result.accessToken(), email, result.session())
                     .map(LoginOutcome::authenticated);
         }
         return Mono.just(LoginOutcome.authenticated(resolveOrganization(result, organizationId)));
@@ -88,7 +97,8 @@ public class AuthService {
      * Auto-provisionnement d'un espace de travail au premier login d'un compte inscrit en
      * self-service : POST /api/actors/me (businessActorId) puis POST /api/organizations.
      */
-    private Mono<AuthResult> provisionDefaultOrganization(String accessToken, String email) {
+    private Mono<AuthResult> provisionDefaultOrganization(String accessToken, String email,
+                                                          KernelLoginResultDto.Session session) {
         return kernelCoreActorAdapter.getMyProfile(accessToken)
                 .flatMap(actor -> {
                     String suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -97,7 +107,7 @@ public class AuthService {
                     String name = actor.getName() != null && !actor.getName().isBlank() ? actor.getName() : fallback;
                     return kernelCoreTenantAdapter.createOrganization(accessToken, actor.getId(), code, name, name);
                 })
-                .map(org -> new AuthResult(accessToken, org.getId().toString(), org.getCode(), org.resolveName()));
+                .map(org -> new AuthResult(accessToken, org.getId().toString(), org.getCode(), org.resolveName(), session));
     }
 
     /**
@@ -152,14 +162,14 @@ public class AuthService {
                     .findFirst()
                     .orElseThrow(() -> new OrganizationNotAccessibleException(
                             "L'organisation demandée n'est pas accessible à cet acteur"));
-            return AuthResult.from(result.accessToken(), match);
+            return AuthResult.from(result.accessToken(), match, result.session());
         }
 
         if (organizations.isEmpty()) {
             throw new OrganizationNotAccessibleException("Aucune organisation accessible pour cet acteur");
         }
         if (organizations.size() == 1) {
-            return AuthResult.from(result.accessToken(), organizations.get(0));
+            return AuthResult.from(result.accessToken(), organizations.get(0), result.session());
         }
 
         Map<String, Object> available = Map.of(
@@ -173,9 +183,14 @@ public class AuthService {
                 "Cet acteur a accès à plusieurs organisations ; précisez organizationId", available);
     }
 
-    public record AuthResult(String token, String organizationId, String organizationCode, String organizationName) {
-        static AuthResult from(String token, KernelOrganizationSummaryDto org) {
-            return new AuthResult(token, org.getOrganizationId(), org.getOrganizationCode(), org.getDisplayName());
+    /**
+     * @param session durée de vie et refresh token émis par KernelCore, à propager au client
+     *                pour qu'il rafraîchisse avant expiration plutôt que sur un 401.
+     */
+    public record AuthResult(String token, String organizationId, String organizationCode, String organizationName,
+                             KernelLoginResultDto.Session session) {
+        static AuthResult from(String token, KernelOrganizationSummaryDto org, KernelLoginResultDto.Session session) {
+            return new AuthResult(token, org.getOrganizationId(), org.getOrganizationCode(), org.getDisplayName(), session);
         }
     }
 
@@ -233,4 +248,120 @@ public class AuthService {
     }
 
     public record RegisterResult(String email, String status, boolean emailVerified) {}
+
+    // ── Cycle de vie des credentials ─────────────────────────────────────────────────
+
+    /**
+     * Mot de passe oublié, en deux appels KernelCore enchaînés ici pour que le portail n'ait
+     * qu'un seul endpoint à appeler : forgot-password (résolution des comptes + jeton court)
+     * puis password-reset/issue (émission du jeton de reset et envoi de l'email).
+     *
+     * Réponse volontairement identique qu'un compte existe ou non : la remontée d'un
+     * "compte inconnu" transformerait ce formulaire en oracle d'énumération d'adresses.
+     */
+    public Mono<PasswordResetRequest> forgotPassword(String email) {
+        return kernelCoreAuthAdapter.forgotPassword(email)
+                .flatMap(response -> {
+                    String selectionToken = response.getSelectionToken();
+                    KernelPasswordResetContextDto context = selectResetContext(response);
+                    if (selectionToken == null || selectionToken.isBlank() || context == null) {
+                        return Mono.just(PasswordResetRequest.noAccount());
+                    }
+                    return kernelCoreAuthAdapter.issuePasswordReset(selectionToken, context.getContextId())
+                            .doOnNext(AuthService::warnIfNotDelivered)
+                            .map(PasswordResetRequest::issued);
+                });
+    }
+
+    /**
+     * Un même email peut exister dans plusieurs tenants KernelCore. Ce déploiement n'en sert
+     * qu'un (app.kernel-core.tenant-id) : on réinitialise le compte de ce tenant, et on ne
+     * retombe sur le premier contexte que si le tenant n'est pas fixé par configuration.
+     */
+    private KernelPasswordResetContextDto selectResetContext(KernelForgotPasswordResponseDto response) {
+        List<KernelPasswordResetContextDto> contexts = response.getContexts();
+        if (contexts == null || contexts.isEmpty()) {
+            return null;
+        }
+        String tenantId = kernelCoreProperties.getTenantId();
+        if (tenantId != null && !tenantId.isBlank()) {
+            return contexts.stream()
+                    .filter(c -> tenantId.equals(c.getTenantId()))
+                    .findFirst()
+                    .orElse(contexts.get(0));
+        }
+        return contexts.get(0);
+    }
+
+    /** Dernière étape du parcours « mot de passe oublié » : le jeton vient du lien reçu par email. */
+    public Mono<KernelUserAccountDto> resetPassword(String resetToken, String newPassword) {
+        return kernelCoreAuthAdapter.resetPassword(resetToken, newPassword);
+    }
+
+    /** Changement de mot de passe depuis le portail, par l'utilisateur déjà connecté. */
+    public Mono<KernelUserAccountDto> changePassword(String accessToken, String currentPassword, String newPassword) {
+        return kernelCoreAuthAdapter.changePassword(accessToken, currentPassword, newPassword);
+    }
+
+    /**
+     * Renvoi du mail de vérification : sans session, puisqu'un compte non vérifié ne peut
+     * précisément pas se connecter. Réponse neutre, pour la même raison que forgotPassword.
+     */
+    public Mono<PasswordResetRequest> resendEmailVerification(String email) {
+        return kernelCoreAuthAdapter.resendEmailVerification(email)
+                .doOnNext(AuthService::warnIfNotDelivered)
+                .map(PasswordResetRequest::issued);
+    }
+
+    /**
+     * PREVIEW_ONLY signifie que KernelCore n'a aucun provider SMTP configuré : le jeton a bien
+     * été émis mais aucun email ne partira, et l'utilisateur attendra un message qui n'arrivera
+     * jamais. Invisible côté client (réponse volontairement neutre), donc tracé ici.
+     */
+    private static void warnIfNotDelivered(KernelIssuedAuthChallengeDto challenge) {
+        if ("PREVIEW_ONLY".equalsIgnoreCase(challenge.getDeliveryMode())) {
+            log.warn("KernelCore a émis un défi en mode PREVIEW_ONLY : aucun email ne sera envoyé "
+                    + "(provider SMTP non configuré côté KernelCore)");
+        }
+    }
+
+    /** Confirmation de l'adresse email à partir du jeton porté par le lien reçu. */
+    public Mono<KernelUserAccountDto> confirmEmailVerification(String verificationToken) {
+        return kernelCoreAuthAdapter.confirmEmailVerification(verificationToken);
+    }
+
+    // ── Cycle de vie de la session ───────────────────────────────────────────────────
+
+    /** Échange un refresh token contre une nouvelle paire de jetons (l'ancien est révoqué). */
+    public Mono<KernelRefreshTokenResponseDto> refresh(String refreshToken) {
+        return kernelCoreAuthAdapter.refresh(refreshToken);
+    }
+
+    /**
+     * Déconnexion best-effort : le client purge ses jetons dans tous les cas, une panne
+     * KernelCore ne doit pas laisser l'utilisateur coincé dans une session qu'il veut quitter.
+     */
+    public Mono<Void> logout(String accessToken, String refreshToken) {
+        return kernelCoreAuthAdapter.logout(accessToken, refreshToken)
+                .onErrorResume(e -> Mono.empty());
+    }
+
+    /**
+     * Issue d'une demande de réinitialisation ou de renvoi de vérification, sans jamais
+     * révéler si un compte correspond.
+     *
+     * @param deliveryMode EMAIL/SMTP quand KernelCore a réellement envoyé le message,
+     *                     PREVIEW_ONLY quand aucun provider SMTP n'est configuré chez lui —
+     *                     dans ce cas aucun email ne partira, symptôme à surveiller en prod.
+     */
+    public record PasswordResetRequest(String deliveryMode, Integer expiresInSeconds) {
+
+        static PasswordResetRequest noAccount() {
+            return new PasswordResetRequest(null, null);
+        }
+
+        static PasswordResetRequest issued(KernelIssuedAuthChallengeDto challenge) {
+            return new PasswordResetRequest(challenge.getDeliveryMode(), challenge.getExpiresInSeconds());
+        }
+    }
 }

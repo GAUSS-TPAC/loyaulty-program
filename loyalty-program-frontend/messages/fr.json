@@ -27,7 +27,10 @@
     "mfaCodePlaceholder": "123456",
     "mfaConfirm": "Valider le code",
     "mfaVerifying": "Vérification...",
-    "mfaBack": "Retour à la connexion"
+    "mfaBack": "Retour à la connexion",
+    "rememberMe": "Se souvenir de moi",
+    "forgotPassword": "Mot de passe oublié ?",
+    "sessionExpired": "Votre session a expiré. Reconnectez-vous pour continuer."
   },
   "Navigation": {
     "overview": "Vue d'ensemble",
@@ -362,7 +365,10 @@
     "loginInstead": "Vous avez déjà un compte ? Connectez-vous",
     "checkEmailTitle": "Compte créé !",
     "checkEmailMessage": "Vérifiez votre boîte mail ({email}) pour confirmer votre adresse avant de vous connecter.",
-    "backToLogin": "Aller à la connexion"
+    "backToLogin": "Aller à la connexion",
+    "resendVerification": "Renvoyer l'email de vérification",
+    "resendSending": "Envoi en cours...",
+    "resendDone": "Si un compte non vérifié correspond à cette adresse, un nouvel email vient de partir."
   },
   "PlatformAdmin": {
     "unlock": {
@@ -455,5 +461,47 @@
       "paid": "Montant payé",
       "currency": "Devise"
     }
+  },
+  "Account": {
+    "forgotTitle": "Mot de passe oublié",
+    "forgotDescription": "Saisissez l'adresse email de votre compte : nous vous enverrons un lien de réinitialisation.",
+    "emailLabel": "Adresse email",
+    "sendLink": "Envoyer le lien",
+    "sending": "Envoi en cours...",
+    "forgotSentTitle": "Vérifiez votre boîte mail",
+    "forgotSentMessage": "Si un compte correspond à cette adresse, un lien de réinitialisation vient d'y être envoyé. Le lien expire rapidement.",
+    "backToLogin": "Retour à la connexion",
+    "resetTitle": "Nouveau mot de passe",
+    "resetDescription": "Choisissez un mot de passe : au moins 10 caractères, une minuscule, une majuscule, un chiffre et un symbole.",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmPasswordLabel": "Confirmez le mot de passe",
+    "resetSubmit": "Réinitialiser mon mot de passe",
+    "resetting": "Réinitialisation...",
+    "resetDoneTitle": "Mot de passe modifié",
+    "resetDoneMessage": "Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter.",
+    "missingToken": "Lien invalide : le jeton de réinitialisation est absent. Relancez la procédure depuis « Mot de passe oublié ».",
+    "passwordMismatch": "Les deux mots de passe ne correspondent pas.",
+    "passwordTooWeak": "Le mot de passe doit contenir au moins 10 caractères, une minuscule, une majuscule, un chiffre et un symbole.",
+    "verifyTitle": "Vérification de votre adresse",
+    "verifying": "Vérification en cours...",
+    "verifyDoneTitle": "Adresse vérifiée",
+    "verifyDoneMessage": "Votre adresse email est confirmée. Vous pouvez vous connecter.",
+    "verifyFailedTitle": "Vérification impossible",
+    "verifyMissingToken": "Lien invalide : le jeton de vérification est absent.",
+    "resend": "Renvoyer un lien de vérification",
+    "resendEmailLabel": "Adresse email du compte",
+    "changeTitle": "Mot de passe",
+    "changeDescription": "Modifiez le mot de passe de votre compte administrateur.",
+    "currentPasswordLabel": "Mot de passe actuel",
+    "changeSubmit": "Mettre à jour le mot de passe",
+    "changing": "Mise à jour...",
+    "changeDone": "Mot de passe mis à jour.",
+    "accountTitle": "Mon compte",
+    "accountDescription": "Credentials et session de l'administrateur connecté.",
+    "sessionTitle": "Session",
+    "sessionOrganization": "Organisation active",
+    "sessionExpiry": "Expiration de la session",
+    "sessionNoExpiry": "Non communiquée par KernelCore",
+    "logout": "Se déconnecter"
   }
 }

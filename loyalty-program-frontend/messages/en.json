@@ -27,7 +27,10 @@
     "mfaCodePlaceholder": "123456",
     "mfaConfirm": "Confirm code",
     "mfaVerifying": "Verifying...",
-    "mfaBack": "Back to login"
+    "mfaBack": "Back to login",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "sessionExpired": "Your session has expired. Sign in again to continue."
   },
   "Navigation": {
     "overview": "Overview",
@@ -362,7 +365,10 @@
     "loginInstead": "Already have an account? Login here",
     "checkEmailTitle": "Account created!",
     "checkEmailMessage": "Check your inbox ({email}) to confirm your address before signing in.",
-    "backToLogin": "Go to login"
+    "backToLogin": "Go to login",
+    "resendVerification": "Resend verification email",
+    "resendSending": "Sending...",
+    "resendDone": "If an unverified account matches this address, a new email has just been sent."
   },
   "PlatformAdmin": {
     "unlock": {
@@ -455,5 +461,47 @@
       "paid": "Amount paid",
       "currency": "Currency"
     }
+  },
+  "Account": {
+    "forgotTitle": "Forgot password",
+    "forgotDescription": "Enter your account email address: we will send you a reset link.",
+    "emailLabel": "Email address",
+    "sendLink": "Send the link",
+    "sending": "Sending...",
+    "forgotSentTitle": "Check your inbox",
+    "forgotSentMessage": "If an account matches this address, a reset link has just been sent to it. The link expires quickly.",
+    "backToLogin": "Back to sign in",
+    "resetTitle": "New password",
+    "resetDescription": "Choose a password: at least 10 characters, one lowercase, one uppercase, one digit and one symbol.",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm password",
+    "resetSubmit": "Reset my password",
+    "resetting": "Resetting...",
+    "resetDoneTitle": "Password updated",
+    "resetDoneMessage": "Your password has been updated. You can now sign in.",
+    "missingToken": "Invalid link: the reset token is missing. Start again from “Forgot password”.",
+    "passwordMismatch": "The two passwords do not match.",
+    "passwordTooWeak": "The password must be at least 10 characters and contain a lowercase letter, an uppercase letter, a digit and a symbol.",
+    "verifyTitle": "Verifying your address",
+    "verifying": "Verifying...",
+    "verifyDoneTitle": "Address verified",
+    "verifyDoneMessage": "Your email address is confirmed. You can sign in.",
+    "verifyFailedTitle": "Verification failed",
+    "verifyMissingToken": "Invalid link: the verification token is missing.",
+    "resend": "Send a new verification link",
+    "resendEmailLabel": "Account email address",
+    "changeTitle": "Password",
+    "changeDescription": "Change the password of your administrator account.",
+    "currentPasswordLabel": "Current password",
+    "changeSubmit": "Update password",
+    "changing": "Updating...",
+    "changeDone": "Password updated.",
+    "accountTitle": "My account",
+    "accountDescription": "Credentials and session of the signed-in administrator.",
+    "sessionTitle": "Session",
+    "sessionOrganization": "Active organization",
+    "sessionExpiry": "Session expiry",
+    "sessionNoExpiry": "Not provided by KernelCore",
+    "logout": "Sign out"
   }
 }

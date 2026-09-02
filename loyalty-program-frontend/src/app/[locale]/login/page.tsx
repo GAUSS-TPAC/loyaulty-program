@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "@/i18n/routing";
-import { Gift, Lock, Mail, AlertTriangle, Cpu, Key, Building2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, Link } from "@/i18n/routing";
+import { Gift, Lock, Mail, AlertTriangle, Cpu, Key, Building2, Eye, EyeOff, ShieldCheck, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LandingHeader } from "@/components/LandingHeader";
 import { authApi, ApiError, LoginResponse } from "@/lib/api";
+import { saveApiKey, saveSession, setRemember } from "@/lib/session";
 
 interface OrganizationChoice {
   organizationId: string;
@@ -26,6 +27,9 @@ export default function AdminLoginPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // « Se souvenir de moi » : la session survit à la fermeture de l'onglet (localStorage)
+  // au lieu de mourir avec lui. Décidé avant l'écriture des jetons, pas après.
+  const [remember, setRememberMe] = useState(false);
   // Compte multi-organisations : le backend répond ORGANIZATION_SELECTION_REQUIRED
   // avec la liste des organisations ; on la propose et on re-soumet avec organizationId.
   const [organizations, setOrganizations] = useState<OrganizationChoice[] | null>(null);
@@ -33,10 +37,27 @@ export default function AdminLoginPage() {
 
   const router = useRouter();
   const t = useTranslations("Login");
+  // Arrivée depuis une session expirée : l'expliquer, sinon la déconnexion paraît arbitraire.
+  // Lu depuis window plutôt que via useSearchParams, qui imposerait une frontière Suspense
+  // au prérendu de cette page.
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("expired") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture unique de l'URL au montage
+      setSessionExpired(true);
+      setError(t("sessionExpired"));
+    }
+  }, [t]);
 
   const completeLogin = (response: LoginResponse) => {
-    sessionStorage.setItem("loyalty_jwt_token", response.token);
-    sessionStorage.setItem("loyalty_organization_id", response.organizationId);
+    setRemember(remember);
+    saveSession({
+      token: response.token,
+      refreshToken: response.refreshToken,
+      expiresInSeconds: response.expiresInSeconds,
+      organizationId: response.organizationId,
+    });
     router.push("/portal");
   };
 
@@ -109,7 +130,8 @@ export default function AdminLoginPage() {
   const handleApiKeyLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiKey.trim()) return;
-    sessionStorage.setItem("loyalty_dev_api_key", apiKey.trim());
+    setRemember(remember);
+    saveApiKey(apiKey.trim());
     router.push("/portal");
   };
 
@@ -254,8 +276,16 @@ export default function AdminLoginPage() {
         ) : (
         <form onSubmit={handleLogin} className="space-y-6 pt-2">
           {error && (
-            <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-xs font-medium flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <div className={`px-4 py-3 rounded-lg text-xs font-medium flex items-center gap-2 border ${
+              sessionExpired
+                ? "bg-secondary/60 border-border text-muted-foreground"
+                : "bg-destructive/10 border-destructive/20 text-destructive"
+            }`}>
+              {sessionExpired ? (
+                <Clock className="w-4 h-4 flex-shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              )}
               <span>{error}</span>
             </div>
           )}
@@ -307,6 +337,24 @@ export default function AdminLoginPage() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between px-1">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border accent-primary"
+                />
+                {t("rememberMe")}
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {t("forgotPassword")}
+              </Link>
             </div>
 
             {organizations && organizations.length > 0 && (

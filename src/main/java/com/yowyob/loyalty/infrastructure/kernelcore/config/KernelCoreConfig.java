@@ -9,6 +9,7 @@ import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreTenantAdap
 import com.yowyob.loyalty.infrastructure.kernelcore.adapter.KernelCoreTokenService;
 import com.yowyob.loyalty.infrastructure.redis.adapter.TenantCacheAdapter;
 import io.netty.channel.ChannelOption;
+import reactor.netty.resources.ConnectionProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +34,19 @@ public class KernelCoreConfig {
         String baseUrl = properties.getBaseUrl();
         if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
 
-        HttpClient httpClient = HttpClient.create()
+        // Kernel Core ferme ses connexions inactives sans que le pool client le sache : la
+        // première requête après une période creuse repartait sur une socket morte et
+        // échouait en « Connexion réinitialisée par le correspondant », que l'utilisateur
+        // lisait « KernelCore indisponible ». Constaté le 2026-09-02 sur le login, après
+        // ~20 s d'inactivité. On expire donc les connexions côté client avant lui, et on
+        // les évince en tâche de fond plutôt qu'au moment d'en avoir besoin.
+        ConnectionProvider connectionProvider = ConnectionProvider.builder("kernel-core")
+                .maxIdleTime(Duration.ofSeconds(15))
+                .maxLifeTime(Duration.ofMinutes(5))
+                .evictInBackground(Duration.ofSeconds(30))
+                .build();
+
+        HttpClient httpClient = HttpClient.create(connectionProvider)
                 .responseTimeout(Duration.ofMillis(properties.getReadTimeoutMs()))
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, properties.getConnectTimeoutMs());
 

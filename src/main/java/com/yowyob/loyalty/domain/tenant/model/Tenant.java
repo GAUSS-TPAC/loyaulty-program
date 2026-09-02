@@ -54,6 +54,10 @@ public class Tenant {
         );
     }
 
+    public Tenant withConfig(TenantConfig config) {
+        return new Tenant(this.id, this.name, this.slug, this.status, this.plan, config, this.auditInfo);
+    }
+
     public Tenant activate() {
         return new Tenant(
             this.id,
